@@ -1,3 +1,5 @@
+![Chuckie egg logo](./docs/logo.png)
+
 # Chuckie Egg for BBC model B (32k) - with Persistent High Scores
 
 Original game author: A&F Software

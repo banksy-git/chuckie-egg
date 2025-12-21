@@ -3,6 +3,7 @@
 # Chuckie Egg for BBC model B (32k) - with Persistent High Scores
 
 Original game author: A&F Software
+
 Hack author: Paul G. Banks <https://paulbanks.org/>
 
 This is a new hack of the classic Chuckie Egg platform game for the BBC Micro. It adds persistent high-score saving to disk/network storage while remaining compatible with standard filing systems including DFS and NFS (Econet).

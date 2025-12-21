@@ -1,0 +1,576 @@
+; ChuckieOS - This file is the main entry point it contains API for the other 
+; programs as well as the one-time program initialisation which
+; will be overwritten once the Home programme is overlayed on top.
+;
+
+ORG &1B00
+.cos_start
+
+.cos_load_param {
+    EQUW &0000     ; Filename pointer
+    EQUD &00000000 ; File load address
+    EQUD &00000000 ; File execute address
+    EQUD &00000000 ;
+    EQUD &00000000 ;
+}
+.cos_end_load_param
+
+.cos_load_prog
+{
+    ; Store filename pointer
+    STX cos_load_param
+    STY cos_load_param+1
+
+    ; Reset load address
+    LDA #&FF
+    STA cos_load_param+6
+    STA cos_load_param+7
+
+    ; Load mini prog
+    LXY cos_load_param
+    LDA #&FF ; OSFILE load
+    JSR osfile
+
+    ; Launch mini prog
+    JMP (cos_load_param+6)
+}
+
+.cos_write_counted_string
+{
+    STX screen_lo
+    STY screen_hi
+    LDY #&00
+    LDA (screen_lo),Y
+    STA string_length
+.string_loop
+    INY
+    LDA (screen_lo),Y
+    JSR oswrch
+    CPY string_length
+    BNE string_loop
+    RTS
+}
+
+.cos_draw_sprite
+{
+    LDA screen_col_offset
+    STA &81
+    LDY #&00
+    LDA sprite_width_bytes
+    STA &87
+    LDX #&00
+    LDA (sprite_lo,X)
+    STA &84
+    LDA #&08
+    STA &83
+    LDA sprite_colour_mask_left
+    LDX &81
+    BEQ colour_screen_aligned
+    .colour_screen_align_loop
+    LSR A
+    DEX
+    BNE colour_screen_align_loop
+    .colour_screen_aligned
+    STA &82
+    LDA #&02
+    SEC
+    SBC &81
+    STA &81
+    LDX #&00
+    .pixel_loop
+    ASL &84
+    BCC pixel_clear
+    LDA (screen_lo),Y
+    EOR &82
+    STA (screen_lo),Y
+    .pixel_clear
+    DEC &83
+    BNE source_byte_live
+    INC sprite_lo
+    BNE sprite_no_carry
+    INC sprite_hi
+    .sprite_no_carry
+    DEC &87
+    BEQ row_finished
+    LDA (sprite_lo,X)
+    STA &84
+    LDA #&08
+    STA &83
+    .source_byte_live
+    LSR &82
+    DEC &81
+    BNE pixel_loop
+    TYA
+    CLC
+    ADC #&08
+    TAY
+    LDA sprite_colour_mask_left
+    STA &82
+    LDA #&02
+    STA &81
+    JMP pixel_loop
+    .row_finished
+    DEC sprite_height
+    BEQ sprite_finished
+    JSR next_screen_line
+    JMP cos_draw_sprite
+    .sprite_finished
+    RTS
+    .next_screen_line
+    INC screen_row_offset
+    LDA screen_row_offset
+    AND #&07
+    BEQ next_screen_row
+    INC screen_lo
+    RTS
+    .next_screen_row
+    STA screen_row_offset
+    CLC
+    LDA screen_lo
+    ADC #&79
+    STA screen_lo
+    LDA screen_hi
+    ADC #&02
+    STA screen_hi
+    RTS
+}
+
+.cos_calculate_screen_location
+{
+    LDA #&00
+    STA screen_hi
+    STA &74
+    TYA
+    EOR #&FF
+    TAY
+    AND #&F8
+    STA screen_lo
+    ASL A
+    ROL screen_hi
+    ASL A
+    ROL screen_hi
+    CLC
+    ADC screen_lo
+    STA screen_lo
+    LDA #&00
+    ADC screen_hi
+    STA screen_hi
+    ASL screen_lo
+    ROL screen_hi
+    ASL screen_lo
+    ROL screen_hi
+    ASL screen_lo
+    ROL screen_hi
+    ASL screen_lo
+    ROL screen_hi
+    TYA
+    AND #&07
+    STA screen_row_offset
+    CLC
+    ADC screen_lo
+    STA screen_lo
+    TXA
+    AND #&01
+    STA screen_col_offset
+    TXA
+    AND #&FE
+    ASL A
+    ROL &74
+    ASL A
+    ROL &74
+    ADC screen_lo
+    STA screen_lo
+    LDA &74
+    ADC screen_hi
+    ADC #screen_start_page
+    STA screen_hi
+    RTS
+}
+
+.cos_sleep {
+    STA loop_counter
+    .sleep_outer_loop
+    LDY #&00
+    LDX #&00
+    .sleep_inner_loop
+    DEX
+    BNE sleep_inner_loop
+    DEY
+    BNE sleep_inner_loop
+    DEC loop_counter
+    BNE sleep_outer_loop
+    RTS
+}
+
+.cos_board_read_with_range_check
+{
+    CPY #&19
+    BCS out_of_bounds
+    CPX #&14
+    BCS out_of_bounds
+    JSR cos_board_calculate_index
+    BCS page_2
+    LDA board_page1,X
+    RTS
+    .page_2
+    LDA board_page2,X
+    RTS
+    .out_of_bounds
+    LDA #&00
+    RTS
+}
+
+.board_write
+{
+    JSR cos_board_calculate_index
+    BCS page_2
+    STA board_page1,X
+    RTS
+    .page_2
+    STA board_page2,X
+    RTS
+}
+
+.cos_board_calculate_index
+{
+    PHA
+    STY &8E
+    TYA
+    ASL A
+    ASL A
+    ADC &8E
+    ASL A
+    ASL A
+    PHP
+    CLC
+    STA &8E
+    TXA
+    ADC &8E
+    TAX
+    BCS addition_carried
+    PLP
+    PLA
+    RTS
+    .addition_carried
+    PLA
+    PLA
+    RTS
+}
+
+.cos_add_to_score
+{
+    LDY #&08
+    STY sprite_colour_mask_left
+    LDY current_score,X
+    CLC
+    ADC current_score,X
+    CPX #&03
+    BNE not_ten_thousands_digit
+    INC extra_life_flag
+    .not_ten_thousands_digit
+    CMP #&0A
+    BCC no_carry
+    SEC
+    SBC #&0A
+    STA current_score,X
+    JSR draw_current_digit
+    LDA #&01
+    DEX
+    BPL cos_add_to_score
+    RTS
+    .no_carry
+    STA current_score,X
+    .draw_current_digit
+    CPX #&02
+    BCS visible_digit
+    RTS
+    .visible_digit
+    STA &8C
+    STX &8D
+    STY &8E
+    LDA score_x_position
+    CLC
+    .x_times_5_loop
+    ADC #&05
+    DEX
+    BPL x_times_5_loop
+    STA &8B
+    TAX
+    LDA &8E
+    LDY #&F7
+    JSR cos_draw_digit
+    LDA &8C
+    LDX &8B
+    LDY #&F7
+    JSR cos_draw_digit
+    LDX &8D
+    RTS
+}
+
+.cos_draw_digit
+{
+    PHA
+    JSR cos_calculate_screen_location
+    PLA
+    CLC
+    ADC #&1F
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    RTS
+}
+
+.cos_lookup_sprite
+{
+    LDY #&00
+    STY sprite_hi
+    ASL A
+    ROL sprite_hi
+    ASL A
+    ROL sprite_hi
+    ADC #<sprite_lookup_table
+    STA sprite_lo
+    LDA sprite_hi
+    ADC #>sprite_lookup_table
+    STA sprite_hi
+    LDA (sprite_lo),Y
+    STA sprite_width_pixels
+    CLC
+    ADC #&07
+    LSR A
+    LSR A
+    LSR A
+    STA sprite_width_bytes
+    INY
+    LDA (sprite_lo),Y
+    STA sprite_height
+    INY
+    LDA (sprite_lo),Y
+    TAX
+    INY
+    LDA (sprite_lo),Y
+    STX sprite_lo
+    STA sprite_hi
+    RTS
+}
+
+.cos_decrement_bonus
+{
+    LDX #&02
+    STX param
+    .decrement_bonus_loop
+    JSR cos_draw_bonus_digit
+    LDX param
+    DEC bonus_3,X
+    PHP
+    BPL no_borrow
+    LDA #&09
+    STA bonus_3,X
+    .no_borrow
+    JSR cos_draw_bonus_digit
+    DEC param
+    PLP
+    BMI decrement_bonus_loop
+    CLC
+    LDA bonus_3
+    ADC bonus_2
+    ADC bonus_1
+    BNE bonus_remains
+    INC bonus_gone_flag
+    .bonus_remains
+    RTS
+}
+
+.cos_draw_bonus_digit
+{
+    LDA param
+    TAY
+    ASL A
+    ASL A
+    ADC param
+    ADC #&66
+    TAX
+    LDA bonus_3,Y
+    LDY #&E7
+    JSR cos_draw_digit
+    RTS
+}
+
+.cos_draw_sprite_at_text_coords
+{
+    PHA
+    TXA
+    CLC
+    ROL A
+    ROL A
+    ROL A
+    TAX
+    TYA
+    SEC
+    ROL A
+    SEC
+    ROL A
+    SEC
+    ROL A
+    TAY
+    JSR cos_calculate_screen_location
+    PLA
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    RTS
+}
+
+INCLUDE "Game_sprites.6502"
+
+;*************************
+.mini_prog_start_address
+;*************************
+
+.mp_init_highscores
+{
+    LXY scores_load_param
+    LDA #&FF ; OSFILE load
+    JSR osfile
+    RTS
+
+    .scores_filename {
+        EQUS "SCORES", &d
+    }
+
+    .scores_load_param {
+        EQUW scores_filename ; Filename pointer
+        EQUW highscore_table ; File load address
+        EQUW 0
+        EQUD &00000000 ; File execute address
+        EQUD &00000000 ;
+        EQUD &00000000 ;
+    }
+}
+
+.start
+{
+    LDA #&c8  ; Escape disable
+    LDX #1
+    LDY #&fe
+    JSR osbyte
+
+    LDX #&00
+    LDA #&16
+    JSR oswrch
+    LDA #&02
+    JSR oswrch
+    LDA #&05
+    JSR oswrch
+    LDA #&05
+    JSR oswrch
+    LDA #&9D
+    STA key_jump
+    LDA #&BE
+    STA key_up
+    LDA #&9E
+    STA key_down
+    LDA #&99
+    STA key_left
+    LDA #&98
+    STA key_right
+    JSR mp_init_highscores
+    LXY envelope1
+    LDA #osword_8_define_envelope
+    JSR osword
+    LXY envelope2
+    LDA #osword_8_define_envelope
+    JSR osword
+    LXY envelope3
+    LDA #osword_8_define_envelope
+    JSR osword
+    LDX #&0F
+    STX param
+    .set_palette_loop
+    LDX param
+    STX msg_palette_logical
+    LDA palette_table,X
+    STA msg_palette_physical
+    LXY msg_palette
+    JSR cos_write_counted_string
+    DEC param
+    BPL set_palette_loop
+
+    RUN_PROG "Home", 0
+
+    .msg_palette {
+        MSG_LENGTH
+        EQUB &13
+        .^msg_palette_logical
+        EQUB &00
+        .^msg_palette_physical
+        EQUB &00
+        EQUB &00
+        EQUB &00
+        EQUB &00
+        .MSG_END
+    }
+    .palette_table
+    EQUB &00
+    EQUB &03
+    EQUB &05
+    EQUB &02
+    EQUB &03
+    EQUB &03
+    EQUB &03
+    EQUB &03
+    EQUB &06
+    EQUB &06
+    EQUB &06
+    EQUB &06
+    EQUB &03
+    EQUB &03
+    EQUB &03
+    EQUB &03
+     .envelope1
+    EQUB &01
+    EQUB &01
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUS "~"
+    EQUB &CE
+    EQUB &00
+    EQUB &00
+    EQUS "d"
+    EQUB &00
+    .envelope2
+    EQUB &02
+    EQUB &01
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUS "~"
+    EQUB &FE
+    EQUB &00
+    EQUB &FB
+    EQUS "~d"
+    .envelope3
+    EQUB &03
+    EQUB &01
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUS "2"
+    EQUB &00
+    EQUB &00
+    EQUB &E7
+    EQUS "d"
+    EQUB &00
+}
+
+.one_time_init_prog_end
+SAVE "CHUCKIE", cos_start, one_time_init_prog_end, start
+

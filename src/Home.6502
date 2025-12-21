@@ -1,0 +1,666 @@
+; Home - This programme handles the home screen and high-scores
+; as well as the main menu.
+
+ORG mini_prog_start_address
+
+.location_of_highscore_x
+{
+    LDA #&00
+    STA sprite_hi
+    DEX
+    TXA
+    ASL A
+    ASL A
+    ASL A
+    ROL sprite_hi
+    ASL A
+    ROL sprite_hi
+    CLC
+    ADC #<highscore_table
+    STA sprite_lo
+    LDA sprite_hi
+    ADC #>highscore_table
+    STA sprite_hi
+    RTS
+}
+
+.check_highscore
+{
+    JSR compare_highscores
+    LDA loop_counter
+    CMP #&0B
+    BNE new_highscore
+    RTS
+    .new_highscore
+    STA param
+    LDA #&C0
+    STA msg_name_y_lo
+    LDA #&02
+    STA msg_name_y_hi
+    LDA param
+    SEC
+    SBC #&01
+    BEQ no_subtraction
+    TAX
+    .subtract_x_times_48_loop
+    LDA msg_name_y_lo
+    SEC
+    SBC #&30
+    STA msg_name_y_lo
+    LDA msg_name_y_hi
+    SBC #&00
+    STA msg_name_y_hi
+    DEX
+    BNE subtract_x_times_48_loop
+    .no_subtraction
+    LXY msg_enter_your_name
+    JSR cos_write_counted_string
+    LDA player
+    CLC
+    ADC #&31
+    JSR oswrch
+    JSR draw_highscores
+    LXY msg_name_move
+    JSR cos_write_counted_string
+    LDA #osbyte_04_cursor_key_effect
+    LDX #&01
+    JSR osbyte
+    LDA #osbyte_0F_flush_buffer_class
+    LDX #&01
+    JSR osbyte
+    LDA #osbyte_E5_escape_key_effect
+    LDX #&01
+    LDY #&00
+    JSR osbyte
+    LXY osword_line_block
+    LDA #osword_0_read_line
+    JSR osword
+    LDX param
+    JSR location_of_highscore_x
+    LDY #&08
+    .copy_name_loop
+    LDA line_buffer-8,Y
+    CMP #&0D
+    BEQ save_scores
+    STA (sprite_lo),Y
+    INY
+    CPY #&10
+    BCC copy_name_loop
+
+    .save_scores
+    LXY scores_save_param
+    LDA #&00 ; OSFILE save
+    JSR osfile
+    RTS
+
+    .scores_filename {
+        EQUS "SCORES", &d
+    }
+    .scores_save_param {
+        EQUW scores_filename ; Filename pointer
+        EQUW highscore_table ; File load address
+        EQUW 0
+        EQUW 0               ; File execute address
+        EQUW 0
+        EQUW highscore_table
+        EQUW 0
+        EQUW highscore_table + 160
+        EQUW 0
+    }
+
+}
+
+.osword_line_block
+EQUW line_buffer
+EQUB line_buffer_end - line_buffer - 1
+EQUS " "
+EQUB &7F
+.line_buffer
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+.line_buffer_end
+
+.compare_highscores
+{
+    LDA #&01
+    STA loop_counter
+    .highscores_loop
+    LDX loop_counter
+    JSR location_of_highscore_x
+    LDY #&00
+    .highscore_digits_loop
+    LDA (sprite_lo),Y
+    CMP current_score,Y
+    BMI highscore_less_than_current
+    BNE highscore_greater_than_current
+    INY
+    CPY #&08
+    BNE highscore_digits_loop
+    .highscore_greater_than_current
+    INC loop_counter
+    LDA loop_counter
+    CMP #&0B
+    BCC highscores_loop
+    RTS
+    .highscore_less_than_current
+    JSR shift_highscores
+    LDY #&07
+    .copy_score_loop
+    LDA current_score,Y
+    STA (sprite_lo),Y
+    DEY
+    BPL copy_score_loop
+    LDY #&0F
+    LDA #&20
+    .clear_name_loop
+    STA (sprite_lo),Y
+    DEY
+    CPY #&07
+    BNE clear_name_loop
+    RTS
+    .shift_highscores
+    LDA #&09
+    STA &8B
+    .shift_highscores_loop
+    LDX &8B
+    CPX loop_counter
+    BCC all_shifted
+    JSR location_of_highscore_x
+    LDY #&0F
+    .copy_entry_from_table_to_buffer_loop
+    LDA (sprite_lo),Y
+    STA duck_x,Y
+    DEY
+    BPL copy_entry_from_table_to_buffer_loop
+    LDX &8B
+    INX
+    JSR location_of_highscore_x
+    LDY #&0F
+    .copy_entry_from_buffer_to_table_loop
+    LDA duck_x,Y
+    STA (sprite_lo),Y
+    DEY
+    BPL copy_entry_from_buffer_to_table_loop
+    DEC &8B
+    JMP shift_highscores_loop
+    .all_shifted
+    LDX loop_counter
+    JSR location_of_highscore_x
+    RTS
+}
+
+.draw_highscores
+{
+    LDA #&01
+    STA loop_counter
+    LXY msg_highscores
+    JSR cos_write_counted_string
+    LDA #&C0
+    STA msg_highscore_y_lo
+    LDA #&02
+    STA msg_highscore_y_hi
+    .draw_highscores_loop
+    LXY msg_highscore_move
+    JSR cos_write_counted_string
+    LDA #&20
+    LDX loop_counter
+    STX &8B
+    CPX #&0A
+    BNE no_tens_digit
+    LDA #&31
+    LDX #&00
+    STX &8B
+    .no_tens_digit
+    JSR oswrch
+    LDA &8B
+    CLC
+    ADC #&30
+    JSR oswrch
+    LDX loop_counter
+    JSR location_of_highscore_x
+    LDY #&00
+    STY &8B
+    .highscore_digits_loop
+    LDA (sprite_lo),Y
+    BNE write_digit
+    LDX &8B
+    BNE write_digit
+    LDA #&20
+    JMP skip_digit
+    .write_digit
+    CLC
+    ADC #&30
+    INC &8B
+    .skip_digit
+    JSR oswrch
+    INY
+    CPY #&08
+    BCC highscore_digits_loop
+    LDA #&20
+    JSR oswrch
+    .highscore_name_loop
+    LDA (sprite_lo),Y
+    JSR oswrch
+    INY
+    CPY #&10
+    BCC highscore_name_loop
+    INC loop_counter
+    LDA loop_counter
+    CMP #&0B
+    BEQ rts
+    LDA msg_highscore_y_lo
+    SEC
+    SBC #&30
+    STA msg_highscore_y_lo
+    LDA msg_highscore_y_hi
+    SBC #&00
+    STA msg_highscore_y_hi
+    JMP draw_highscores_loop
+    .rts
+    RTS
+}
+
+.home_lookup_sprite
+{
+    LDY #&00
+    STY sprite_hi
+    ASL A
+    ROL sprite_hi
+    ASL A
+    ROL sprite_hi
+    ADC #<home_sprites
+    STA sprite_lo
+    LDA sprite_hi
+    ADC #>home_sprites
+    STA sprite_hi
+    LDA (sprite_lo),Y
+    STA sprite_width_pixels
+    CLC
+    ADC #&07
+    LSR A
+    LSR A
+    LSR A
+    STA sprite_width_bytes
+    INY
+    LDA (sprite_lo),Y
+    STA sprite_height
+    INY
+    LDA (sprite_lo),Y
+    TAX
+    INY
+    LDA (sprite_lo),Y
+    STX sprite_lo
+    STA sprite_hi
+    RTS
+}
+
+.home_start {
+
+    LDA param
+    CMP #1
+    BEQ next_player
+    JMP home_screen
+
+    .next_player
+    JSR check_highscore
+    LDA #&05
+    JSR cos_sleep
+    DEC player_remaining_count
+    BEQ home_screen
+    RUN_PROG "Game", 1
+
+    .home_screen
+    TSX
+    STX carousel_stack_top
+    LDA #&10
+    JSR oswrch
+
+    JSR draw_chuckie_banner
+    JSR draw_highscores
+    JSR draw_press_s_to_start
+.wait_keys
+    LDA #osbyte_81_inkey
+    LDX #scan_S EOR &FF
+    LDY #&FF
+    JSR osbyte
+    CPY #&00
+    BEQ s_not_pressed
+    LDX carousel_stack_top
+    TXS
+    JSR start_game
+    JMP home_start
+.s_not_pressed
+    LDA #osbyte_81_inkey
+    LDX #scan_K EOR &FF
+    LDY #&FF
+    JSR osbyte
+    CPY #&00
+    BNE k_pressed
+    JMP wait_keys
+.k_pressed
+    LDX carousel_stack_top
+    TXS
+    RUN_PROG "KeySel", 0
+
+    .draw_chuckie_banner_letter
+    PHA
+    JSR cos_calculate_screen_location
+    PLA
+    JSR home_lookup_sprite
+    JSR cos_draw_sprite
+    RTS
+
+    .draw_chuckie_banner
+    LDA #&02
+    STA sprite_colour_mask_left
+    LDA #&0
+    LDX #&02
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    LDA #&1
+    LDX #&11
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    LDA #&2
+    LDX #&20
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    LDA #&0
+    LDX #&2F
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    LDA #&3
+    LDX #&3E
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    LDA #&4
+    LDX #&4D
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    LDA #&5
+    LDX #&5C
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    LDA #&5
+    LDX #&72
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    LDA #&6
+    LDX #&81
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    LDA #&6
+    LDX #&90
+    LDY #&F0
+    JSR draw_chuckie_banner_letter
+    RTS
+.draw_press_s_to_start
+    LXY msg_press_s_to_start
+    JSR cos_write_counted_string
+    RTS
+}
+
+.start_game {
+    LXY msg_how_many_players
+    JSR cos_write_counted_string
+    LDA #&00
+    STA &8B
+    LDA #&64
+    STA &8C
+    .wait_for_player_count_loop
+    LDX #scan_1 EOR &FF
+    LDY #&FF
+    LDA #osbyte_81_inkey
+    JSR osbyte
+    CPY #&00
+    BEQ one_not_pressed
+    LDA #&01
+    JMP init_player_count
+    .one_not_pressed
+    LDX #scan_2 EOR &FF
+    LDY #&FF
+    LDA #osbyte_81_inkey
+    JSR osbyte
+    CPY #&00
+    BEQ two_not_pressed
+    LDA #&02
+    JMP init_player_count
+    .two_not_pressed
+    LDX #scan_3 EOR &FF
+    LDY #&FF
+    LDA #osbyte_81_inkey
+    JSR osbyte
+    CPY #&00
+    BEQ three_not_pressed
+    LDA #&03
+    JMP init_player_count
+    .three_not_pressed
+    LDX #scan_4 EOR &FF
+    LDY #&FF
+    LDA #osbyte_81_inkey
+    JSR osbyte
+    CPY #&00
+    BEQ four_not_pressed
+    LDA #&04
+    JMP init_player_count
+    .four_not_pressed
+    DEC &8B
+    BNE wait_for_player_count_loop
+    DEC &8C
+    BNE wait_for_player_count_loop
+    PLA
+    PLA
+    RTS
+    .init_player_count
+    STA player_total_count
+    STA player_remaining_count
+    CLC
+    ADC #&30
+    JSR oswrch
+    LDA #&05
+    JSR cos_sleep
+    .init_players_state
+    LDX #&03
+    .init_players_loop
+    LDA #&00
+    STA player_levels,X
+    LDA #&05
+    STA player_lives,X
+    DEX
+    BPL init_players_loop
+    LDX #&03
+    STX param
+    .init_players_scores_loop
+    TXA
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    TAX
+    LDY #&07
+    LDA #&00
+    .init_score_loop
+    STA player_score,X
+    INX
+    DEY
+    BPL init_score_loop
+    DEC param
+    LDX param
+    BPL init_players_scores_loop
+    LDA #&00
+    STA level_number
+    LDA #&04
+    STA player
+    .init_players_level_state_loop
+    DEC player
+    JSR init_player_level_state
+    LDA player
+    BNE init_players_level_state_loop
+    JSR restore_player_state
+    LDA #&1A
+    JSR oswrch
+
+    RUN_PROG "Game", 0
+
+.init_player_level_state
+    LDA player
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    TAX
+    LDA level_number
+    CLC
+    ADC #&01
+    CMP #&0A
+    BCC bonus_in_range
+    LDA #&09
+    .bonus_in_range
+    STA player_level_bonus,X
+    LDA #&00
+    STA &0509,X
+    STA &050A,X
+    STA &050B,X
+    LDY #&10
+    .clear_flags_loop
+    STA player_egg_flags,X
+    STA player_grain_flags,X
+    INX
+    DEY
+    BNE clear_flags_loop
+    RTS
+    .restore_player_state
+    LDX player
+    LDA player_levels,X
+    STA level_number
+    TXA
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    STA player_data_index
+    TAX
+    LDY #&00
+    .restore_score_loop
+    LDA player_score,X
+    STA current_score,Y
+    INX
+    INY
+    CPY #&08
+    BCC restore_score_loop
+    LDX player_data_index
+    LDY #&00
+    .restore_bonus_loop
+    LDA player_level_bonus,X
+    STA bonus_3,Y
+    INX
+    INY
+    CPY #&04
+    BCC restore_bonus_loop
+    LDX player
+    LDA #&00
+    CLC
+    .x_times_34_loop
+    ADC #&22
+    DEX
+    BPL x_times_34_loop
+    SEC
+    SBC #&15
+    STA score_x_position
+    RTS
+
+}
+
+.msg_highscores {
+    MSG_LENGTH
+    VDU_GCOL 0, 1
+    VDU_MOVE 288, 800
+    EQUS "HIGH SCORES"
+    VDU_GCOL 0, 3
+    .MSG_END
+}
+
+.msg_highscore_move {
+    MSG_LENGTH
+    EQUB &19
+    EQUB &04
+    EQUS " "
+    EQUB &00
+    .^msg_highscore_y_lo
+    EQUB &00
+    .^msg_highscore_y_hi
+    EQUB &00
+    .MSG_END
+}
+
+.msg_name_move {
+    MSG_LENGTH
+    VDU_GCOL 0, 1
+    EQUB &19
+    EQUB &04
+    EQUB &A0
+    EQUB &02
+    .^msg_name_y_lo
+    EQUB &00
+    .^msg_name_y_hi
+    EQUB &00
+    EQUS ">"
+    .MSG_END
+}
+.msg_enter_your_name {
+    MSG_LENGTH
+    VDU_GRAPHICS_WINDOW 0, 0, 1279, 892 
+    VDU_CLG
+    VDU_RESET_WINDOW
+    VDU_GCOL 0, 1
+    VDU_MOVE 160, 160
+    EQUS "ENTER YOUR NAME"
+    VDU_MOVE 384, 100
+    VDU_GCOL 0, 2
+    EQUS "Player "
+    .MSG_END
+}
+
+.msg_press_s_to_start {
+    MSG_LENGTH
+    VDU_MOVE 128, 100
+    VDU_GCOL 0, 4
+    EQUS "Press "
+    VDU_GCOL 0, 8
+    EQUS "S "
+    VDU_GCOL 0, 4
+    EQUS "to start"
+    VDU_MOVE 128, 50
+    VDU_GCOL 0, 8
+    EQUS "K "
+    VDU_GCOL 0, 4
+    EQUS "to change keys"
+    .MSG_END
+}
+
+.msg_how_many_players {
+    MSG_LENGTH
+    VDU_CLG
+    VDU_MOVE 32, 500
+    EQUS "How many players? "
+    .MSG_END
+}
+
+INCLUDE "Home_sprites.6502"
+
+.home_prog_end
+SAVE "Home", mini_prog_start_address, home_prog_end, home_start
+

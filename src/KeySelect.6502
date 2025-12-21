@@ -1,0 +1,394 @@
+; KeySelect - This programme contains the keyboard key selection logic
+
+ORG mini_prog_start_address
+
+.select_keys
+{
+    LXY msg_key_selection
+    JSR cos_write_counted_string
+    LDA #osbyte_AC_key_code_to_ascii_table
+    LDX #&00
+    LDY #&FF
+    JSR osbyte
+    STX sprite_lo
+    STY sprite_hi
+    LDA #&00
+    STA key_press_bits
+    LDA #&54
+    STA current_score
+    LXY msg_key_up
+    JSR cos_write_counted_string
+    JSR select_key
+    STA key_up
+    LXY msg_key_down
+    JSR cos_write_counted_string
+    JSR select_key
+    STA key_down
+    LXY msg_key_left
+    JSR cos_write_counted_string
+    JSR select_key
+    STA key_left
+    LXY msg_key_right
+    JSR cos_write_counted_string
+    JSR select_key
+    STA key_right
+    LXY msg_key_jump
+    JSR cos_write_counted_string
+    JSR select_key
+    STA key_jump
+    RTS
+    .select_key
+    LDA #osbyte_79_keyboard_scan
+    LDX #scan_SHIFT EOR &80
+    JSR osbyte
+    TXA
+    BPL not_shift
+    LDX #&00
+    JMP key_pressed
+    .not_shift
+    LDA #osbyte_79_keyboard_scan
+    LDX #scan_CTRL EOR &80
+    JSR osbyte
+    TXA
+    BPL not_ctrl
+    LDX #&01
+    JMP key_pressed
+    .not_ctrl
+    LDA #osbyte_7A_keyboard_scan_from_16
+    JSR osbyte
+    CPX #&FF
+    BEQ select_key
+    .key_pressed
+    STX param
+    TXA
+    EOR #&FF
+    STA &89
+    LDY key_press_bits
+    TXA
+    AND #&0F
+    STA &8B
+    TXA
+    AND #&F0
+    STA &8C
+    LDA #&00
+    STA &8D
+    STA &8E
+    .key_clash_loop
+    TXA
+    CMP current_score,Y
+    BEQ select_key
+    LDA current_score,Y
+    AND #&0F
+    CMP &8B
+    BNE lo_nibble_mismatch
+    INC &8D
+    .lo_nibble_mismatch
+    LDA current_score,Y
+    AND #&F0
+    CMP &8C
+    BNE hi_nibble_mismatch
+    INC &8E
+    .hi_nibble_mismatch
+    DEY
+    BPL key_clash_loop
+    LDA &8D
+    BEQ no_clash
+    LDA &8E
+    BEQ no_clash
+    LDA #osbyte_D6_bell_duration
+    LDX #&01
+    LDY #&00
+    JSR osbyte
+    LDA #&07
+    JSR oswrch
+    JMP select_key
+    .no_clash
+    INC key_press_bits
+    LDY key_press_bits
+    TXA
+    STA current_score,Y
+}
+
+.draw_key_name_impl
+{
+    CPX #&02
+    BCS not_shift_ctrl
+    CPX #&00
+    BNE not_shift
+    LXY key_name_shift
+    JMP write_name_load_result
+    .not_shift
+    LXY key_name_control
+    JMP write_name_load_result
+    .not_shift_ctrl
+    LDY param
+    LDA (sprite_lo),Y
+    CMP #&21
+    BCC not_ascii
+    CMP #&7F
+    BCS not_ascii
+    PHA
+    LDA #&27
+    JSR oswrch
+    PLA
+    JSR oswrch
+    LDA #&27
+    JSR oswrch
+    JMP load_result
+    .not_ascii
+    CMP #&00
+    BNE not_tab
+    LXY key_name_tab
+    JMP write_name_load_result
+    .not_tab
+    CMP #&01
+    BNE not_capslock
+    LXY key_name_capslock
+    JMP write_name_load_result
+    .not_capslock
+    CMP #&02
+    BNE not_shiftlock
+    LXY key_name_shiftlock
+    JMP write_name_load_result
+    .not_shiftlock
+    CMP #&1B
+    BNE not_escape
+    LXY key_name_escape
+    JMP write_name_load_result
+    .not_escape
+    CMP #&20
+    BNE not_space
+    LXY key_name_space
+    JMP write_name_load_result
+    .not_space
+    CMP #&7F
+    BNE not_delete
+    LXY key_name_delete
+    JMP write_name_load_result
+    .not_delete
+    CMP #&0D
+    BNE not_enter
+    LXY key_name_return
+    JMP write_name_load_result
+    .not_enter
+    CMP #&8B
+    BNE not_copy
+    LXY key_name_copy
+    JMP write_name_load_result
+    .not_copy
+    CMP #&8C
+    BNE not_left
+    LXY key_name_left
+    JMP write_name_load_result
+    .not_left
+    CMP #&8D
+    BNE not_right
+    LXY key_name_right
+    JMP write_name_load_result
+    .not_right
+    CMP #&8E
+    BNE not_down
+    LXY key_name_down
+    JMP write_name_load_result
+    .not_down
+    CMP #&8F
+    BNE not_up
+    LXY key_name_up
+    JMP write_name_load_result
+    .not_up
+    CMP #&80
+    BCC load_result
+    CMP #&8A
+    BCS load_result
+    PHA
+    LDA #&66
+    JSR oswrch
+    PLA
+    SEC
+    SBC #&50
+    JSR oswrch
+    JMP load_result
+    .write_name_load_result
+    JSR cos_write_counted_string
+    .load_result
+    LDA &89
+    RTS
+}
+.msg_key_selection {
+    MSG_LENGTH
+    VDU_CLG
+    VDU_GCOL 0, 4
+    VDU_MOVE 480, 950
+    EQUS "K E Y"
+    VDU_MOVE 96, 850
+    EQUS "S E L E C T I O N"
+    VDU_GCOL 0, 2
+    .MSG_END
+}
+.msg_key_up {
+    MSG_LENGTH
+    VDU_MOVE 196, 700
+    EQUS "Up .. "
+    .MSG_END
+}
+.msg_key_down {
+    MSG_LENGTH
+    VDU_MOVE 64, 620
+    EQUS "Down .. "
+    .MSG_END
+}
+.msg_key_left {
+    MSG_LENGTH
+    VDU_MOVE 64, 540
+    EQUS "Left .. "
+    .MSG_END
+}
+.msg_key_right {
+    MSG_LENGTH
+    VDU_MOVE 0, 460
+    EQUS "Right .. "
+    .MSG_END
+}
+.msg_key_jump {
+    MSG_LENGTH
+    VDU_MOVE 64, 380
+    EQUS "Jump .. "
+    .MSG_END
+}
+.key_name_tab {
+    MSG_LENGTH
+    EQUS "Tab"
+    .MSG_END
+}
+.key_name_capslock {
+    MSG_LENGTH
+    EQUS "Caps Lock"
+    .MSG_END
+}
+.key_name_shiftlock {
+    MSG_LENGTH
+    EQUS "Shift Lock"
+    .MSG_END
+}
+.key_name_escape {
+    MSG_LENGTH
+    EQUS "Escape"
+    .MSG_END
+}
+.key_name_space {
+    MSG_LENGTH
+    EQUS "Space"
+    .MSG_END
+}
+.key_name_delete {
+    MSG_LENGTH
+    EQUS "Delete"
+    .MSG_END
+}
+.key_name_return {
+    MSG_LENGTH
+    EQUS "Return"
+    .MSG_END
+}
+.key_name_copy {
+    MSG_LENGTH
+    EQUS "Copy"
+    .MSG_END
+}
+.key_name_left {
+    MSG_LENGTH
+    EQUS "Left Arrow"
+    .MSG_END
+}
+.key_name_right {
+    MSG_LENGTH
+    EQUS "Right Arrow"
+    .MSG_END
+}
+.key_name_down {
+    MSG_LENGTH
+    EQUS "Down Arrow"
+    .MSG_END
+}
+.key_name_up {
+    MSG_LENGTH
+    EQUS "Up Arrow"
+    .MSG_END
+}
+.key_name_shift {
+    MSG_LENGTH
+    EQUS "Shift"
+    .MSG_END
+}
+.key_name_control {
+    MSG_LENGTH
+    EQUS "Control"
+    .MSG_END
+}
+
+.draw_key_selection
+{
+    LXY msg_key_display
+    JSR cos_write_counted_string
+    LDA #osbyte_AC_key_code_to_ascii_table
+    LDX #&00
+    LDY #&FF
+    JSR osbyte
+    STX sprite_lo
+    STY sprite_hi
+    LXY msg_key_up
+    JSR cos_write_counted_string
+    LDA key_up
+    JSR draw_key_name
+    LXY msg_key_down
+    JSR cos_write_counted_string
+    LDA key_down
+    JSR draw_key_name
+    LXY msg_key_left
+    JSR cos_write_counted_string
+    LDA key_left
+    JSR draw_key_name
+    LXY msg_key_right
+    JSR cos_write_counted_string
+    LDA key_right
+    JSR draw_key_name
+    LXY msg_key_jump
+    JSR cos_write_counted_string
+    LDA key_jump
+    JSR draw_key_name
+    LXY msg_standard_keys
+    JSR cos_write_counted_string
+    RTS
+    .draw_key_name
+    EOR #&FF
+    TAX
+    STA param
+    JMP draw_key_name_impl
+    .msg_key_display {
+        MSG_LENGTH
+        VDU_MOVE 512, 800
+        VDU_GCOL 0, 4
+        EQUS "KEYS"
+        VDU_GCOL 0, 8
+        .MSG_END
+    }
+    .msg_standard_keys {
+        MSG_LENGTH
+        VDU_GCOL 0, 2
+        VDU_MOVE 64, 280
+        EQUS "Hold .. 'H'"
+        VDU_MOVE 0, 200
+        EQUS "Abort .. Escape +'H'"
+        .MSG_END
+    }
+}
+
+.key_select_start
+{
+    JSR select_keys
+    RUN_PROG "Home", 0
+}
+
+.key_select_prog_end
+SAVE "KeySel", mini_prog_start_address, key_select_prog_end, key_select_start
+

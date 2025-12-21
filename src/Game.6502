@@ -1,0 +1,910 @@
+; Game - This programme contains the game board loading and 
+; setup code. Once loaded, control passes to the "Play"
+; programme which contains the in-game logic.
+
+ORG mini_prog_start_address
+
+.init_and_draw_level
+{
+    LDA #&10
+    JSR oswrch
+    JSR draw_game_stats
+    LDA scenario_number
+    ASL A
+    TAY
+    LDA scenario_lookup_table,Y
+    STA scenario_lo
+    INY
+    LDA scenario_lookup_table,Y
+    STA scenario_hi
+    LDY #&00
+    LDA (scenario_lo),Y
+    STA wall_count
+    INY
+    LDA (scenario_lo),Y
+    STA ladder_count
+    INY
+    LDA (scenario_lo),Y
+    STA lift_flag
+    INY
+    LDA (scenario_lo),Y
+    STA grain_count
+    INY
+    LDA (scenario_lo),Y
+    STA chicken_count
+    LDA #&00
+    TAX
+    .clear_board_loop
+    STA board_page1,X
+    STA board_page2,X
+    DEX
+    BNE clear_board_loop
+    LDA #&0A
+    STA sprite_colour_mask_left
+    LDA wall_count
+    STA loop_counter
+    STY &89
+    .wall_loop
+    LDY &89
+    INY
+    LDA (scenario_lo),Y
+    STA &8B
+    INY
+    LDA (scenario_lo),Y
+    STA &8C
+    INY
+    LDA (scenario_lo),Y
+    SEC
+    SBC &8C
+    STA &8D
+    STY &89
+    .wall_segments_loop
+    LDA #&01
+    LDY &8B
+    LDX &8C
+    JSR board_write
+    LDX &8C
+    JSR cos_draw_sprite_at_text_coords
+    INC &8C
+    DEC &8D
+    BPL wall_segments_loop
+    DEC loop_counter
+    BNE wall_loop
+    LDA #&08
+    STA sprite_colour_mask_left
+    LDA ladder_count
+    STA loop_counter
+    .ladder_loop
+    LDY &89
+    INY
+    LDA (scenario_lo),Y
+    STA &8B
+    INY
+    LDA (scenario_lo),Y
+    STA &8C
+    INY
+    LDA (scenario_lo),Y
+    SEC
+    SBC &8C
+    STA &8D
+    STY &89
+    .ladder_segments_loop
+    LDX &8B
+    LDY &8C
+    JSR cos_board_read_with_range_check
+    BEQ no_wall_segment
+    LDX #&0A
+    STX sprite_colour_mask_left
+    LDX &8B
+    JSR cos_draw_sprite_at_text_coords
+    LDA #&01
+    LDX #&08
+    STX sprite_colour_mask_left
+    .no_wall_segment
+    ORA #&02
+    LDX &8B
+    LDY &8C
+    JSR board_write
+    LDA #&02
+    LDX &8B
+    LDY &8C
+    JSR cos_draw_sprite_at_text_coords
+    INC &8C
+    DEC &8D
+    BPL ladder_segments_loop
+    DEC loop_counter
+    BNE ladder_loop
+    LDA lift_flag
+    BEQ no_lift
+    LDY &89
+    INY
+    LDA (scenario_lo),Y
+    STY &89
+    ASL A
+    ASL A
+    ASL A
+    STA lift_x
+    .no_lift
+    LDA #&02
+    STA sprite_colour_mask_left
+    LDA #&00
+    STA loop_counter
+    STA egg_remaining_count
+    LDA player_data_index
+    STA param
+    .egg_loop
+    LDY &89
+    INY
+    LDA (scenario_lo),Y
+    STA &8B
+    INY
+    LDA (scenario_lo),Y
+    STA &8C
+    STY &89
+    LDX param
+    LDA player_egg_flags,X
+    BNE egg_collected
+    LDA loop_counter
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ADC #&04
+    LDX &8B
+    LDY &8C
+    JSR board_write
+    LDA #&03
+    LDX &8B
+    LDY &8C
+    JSR cos_draw_sprite_at_text_coords
+    INC egg_remaining_count
+    .egg_collected
+    INC param
+    INC loop_counter
+    LDA loop_counter
+    CMP #&0C
+    BCC egg_loop
+    LDA #&08
+    STA sprite_colour_mask_left
+    LDA #&00
+    STA loop_counter
+    LDA player_data_index
+    STA param
+    .grain_loop
+    LDY &89
+    INY
+    LDA (scenario_lo),Y
+    STA &8B
+    INY
+    LDA (scenario_lo),Y
+    STA &8C
+    STY &89
+    LDX param
+    LDA player_grain_flags,X
+    BNE grain_collected
+    LDA loop_counter
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ADC #&08
+    LDX &8B
+    LDY &8C
+    JSR board_write
+    LDA #&04
+    LDX &8B
+    LDY &8C
+    JSR cos_draw_sprite_at_text_coords
+    .grain_collected
+    INC param
+    INC loop_counter
+    LDA loop_counter
+    CMP grain_count
+    BCC grain_loop
+    LDA #&20
+    STA sprite_colour_mask_left
+    LDX #&00
+    LDY #&DC
+    JSR cos_calculate_screen_location
+    LDX #&13
+    LDA duck_loose_flag
+    BEQ duck_in_cage
+    INX
+    .duck_in_cage
+    TXA
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    LDY &89
+    LDX #&00
+    .chicken_loop
+    INY
+    LDA (scenario_lo),Y
+    STA chicken_board_xs,X
+    INY
+    LDA (scenario_lo),Y
+    STA chicken_board_ys,X
+    INX
+    CPX #&05
+    BCC chicken_loop
+    RTS
+    .draw_game_stats
+    LDA #&08
+    STA sprite_colour_mask_left
+    LDX #&00
+    LDY #&F8
+    JSR cos_calculate_screen_location
+    LDA #&29
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    LDX player
+    LDA #&00
+    CLC
+    .x_times_34_loop
+    ADC #&22
+    DEX
+    BPL x_times_34_loop
+    SEC
+    SBC #&07
+    TAX
+    LDY #&F8
+    JSR cos_calculate_screen_location
+    LDA #&2A
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    LDX #&00
+    STX param
+    .draw_player_stats_loop
+    JSR draw_score_and_lives
+    INC param
+    LDX param
+    CPX player_total_count
+    BCC draw_player_stats_loop
+    LDA #&08
+    STA sprite_colour_mask_left
+    LDX #&00
+    LDY #&E8
+    JSR cos_calculate_screen_location
+    LDA #&2B
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    LDX #&1B
+    LDY #&E7
+    JSR cos_calculate_screen_location
+    LDA player
+    CLC
+    ADC #&20
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    LDX #&24
+    LDY #&E8
+    JSR cos_calculate_screen_location
+    LDA #&2C
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    LDA #&00
+    STA &8B
+    STA &8C
+    LDX level_number
+    INX
+    STX &8D
+    LDA &8D
+    LDX #&00
+    .div_mod_10_loop_a
+    CMP #&0A
+    BCC less_than_10_a
+    SEC
+    SBC #&0A
+    INX
+    JMP div_mod_10_loop_a
+    .less_than_10_a
+    STA &8D
+    TXA
+    LDX #&00
+    .div_mod_10_loop_b
+    CMP #&0A
+    BCC less_than_10_b
+    SEC
+    SBC #&0A
+    INX
+    JMP div_mod_10_loop_b
+    .less_than_10_b
+    STA &8C
+    STX &8B
+    LDA &8B
+    BEQ skip_zero_hundreds
+    LDX #&3B
+    LDY #&E7
+    JSR cos_draw_digit
+    .skip_zero_hundreds
+    LDA &8C
+    LDX #&40
+    LDY #&E7
+    JSR cos_draw_digit
+    LDA &8D
+    LDX #&45
+    LDY #&E7
+    JSR cos_draw_digit
+    LDX #&4E
+    LDY #&E8
+    JSR cos_calculate_screen_location
+    LDA #&2D
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    LDA bonus_3
+    LDX #&66
+    LDY #&E7
+    JSR cos_draw_digit
+    LDA bonus_2
+    LDX #&6B
+    LDY #&E7
+    JSR cos_draw_digit
+    LDA bonus_1
+    LDX #&70
+    LDY #&E7
+    JSR cos_draw_digit
+    LDA #&00
+    LDX #&75
+    LDY #&E7
+    JSR cos_draw_digit
+    LDX #&7E
+    LDY #&E8
+    JSR cos_calculate_screen_location
+    LDA #&2E
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    LDA round_number
+    LSR A
+    CMP #&08
+    BCC round_less_than_8
+    LDA #&08
+    .round_less_than_8
+    EOR #&FF
+    SEC
+    ADC #&09
+    STA timer_2
+    LDX #&91
+    LDY #&E7
+    JSR cos_draw_digit
+    LDA #&00
+    STA timer_1
+    LDX #&96
+    LDY #&E7
+    JSR cos_draw_digit
+    LDA #&00
+    STA timer_0
+    LDX #&9B
+    LDY #&E7
+    JSR cos_draw_digit
+    RTS
+    .draw_score_and_lives
+    LDA #&00
+    CLC
+    .x_times_34_loop_b
+    ADC #&22
+    DEX
+    BPL x_times_34_loop_b
+    SEC
+    SBC #&07
+    STA &8B
+    LDA #&08
+    STA sprite_colour_mask_left
+    LDA param
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    TAX
+    INX
+    INX
+    STX &8D
+    LDX &8B
+    INX
+    STX &8C
+    LDA #&06
+    STA &8E
+    .draw_digits_loop
+    LDX &8D
+    LDA player_score,X
+    LDX &8C
+    LDY #&F7
+    JSR cos_draw_digit
+    LDA &8C
+    CLC
+    ADC #&05
+    STA &8C
+    INC &8D
+    DEC &8E
+    BNE draw_digits_loop
+    LDA #&20
+    STA sprite_colour_mask_left
+    LDX param
+    LDA player_lives,X
+    BEQ no_lives_left
+    CMP #&08
+    BCC lives_less_than_8
+    LDA #&08
+    .lives_less_than_8
+    STA &8E
+    LDA &8B
+    STA &8C
+    .draw_pips_loop
+    LDX &8C
+    LDY #&EE
+    JSR cos_calculate_screen_location
+    LDA #&2F
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    DEC &8E
+    BEQ no_lives_left
+    LDA &8C
+    CLC
+    ADC #&04
+    STA &8C
+    JMP draw_pips_loop
+    .no_lives_left
+    RTS
+}
+
+.game_draw_harry
+{
+    LDX #&20
+    STX sprite_colour_mask_left
+    JSR cos_lookup_sprite
+    LDX harry_x
+    LDY harry_y
+    JSR cos_calculate_screen_location
+    JSR cos_draw_sprite
+    RTS
+}
+
+.game_draw_duck
+{
+    LDX #&20
+    STX sprite_colour_mask_left
+    CLC
+    ADC #&0F
+    JSR cos_lookup_sprite
+    LDX duck_x
+    LDY duck_y
+    JSR cos_calculate_screen_location
+    JSR cos_draw_sprite
+    RTS
+}
+
+.game_draw_chicken
+{
+    LDX #&80
+    STX sprite_colour_mask_left
+    LDX param
+    LDA chicken_sprite_indices,X
+    CLC
+    ADC #&15
+    PHA
+    JSR cos_lookup_sprite
+    LDX param
+    LDA chicken_xs,X
+    LDY chicken_ys,X
+    TAX
+    PLA
+    CMP #&1D
+    BCC not_feeding_left
+    TXA
+    SBC #&08
+    TAX
+    .not_feeding_left
+    JSR cos_calculate_screen_location
+    JSR cos_draw_sprite
+    RTS
+}
+
+.game_start 
+{
+    LDA param
+    CMP #1
+    BEQ lives_remaining
+    CMP #2
+    BEQ harry_died
+    CMP #3
+    BEQ next_level
+    JMP new_player
+
+    .next_level
+    LDA bonus_gone_flag
+    BNE bonus_already_gone
+    .accumulate_bonus_loop
+    LDA #&01
+    LDX #&06
+    JSR cos_add_to_score
+    JSR cos_decrement_bonus
+    JSR check_extra_lives
+    LDA bonus_1
+    BEQ fifty_divides_bonus
+    CMP #&05
+    BNE skip_bonus_sound
+    .fifty_divides_bonus
+    LXY sound4
+    LDA #osword_7_play_sound
+    JSR osword
+    .skip_bonus_sound
+    LDA bonus_gone_flag
+    BEQ accumulate_bonus_loop
+    .bonus_already_gone
+    INC level_number
+    JSR save_player_state
+    JSR init_player_level_state
+    JSR restore_player_state
+    JMP level_loop
+
+    .harry_died
+    JSR save_player_state
+    LDX player
+    DEC player_lives,X
+    BNE lives_remaining
+    LXY msg_game_over
+    JSR cos_write_counted_string
+    LXY msg_player
+    JSR cos_write_counted_string
+    LDA player
+    CLC
+    ADC #&31
+    JSR oswrch
+    LDA #&0A
+    JSR cos_sleep
+    LDA #osbyte_7C_clear_escape
+    JSR osbyte
+    ; Check/show high scores
+    RUN_PROG "Home", 1
+
+    .lives_remaining
+    LDX player
+    INX
+    TXA
+    AND #&03
+    STA player
+    CMP player_total_count
+    BCS lives_remaining
+    TAX
+    LDA player_lives,X
+    BEQ lives_remaining
+    JSR restore_player_state
+    JMP new_player
+
+    .new_player
+    LXY msg_get_ready
+    JSR cos_write_counted_string
+    LXY msg_player
+    JSR cos_write_counted_string
+    LDA player
+    CLC
+    ADC #&31
+    JSR oswrch
+    LDA #&14
+    JSR cos_sleep
+
+    .level_loop
+    JSR init_level_state
+    JSR init_and_draw_level
+    JSR init_mobile_things
+    LDA #osbyte_7C_clear_escape
+    JSR osbyte
+
+    RUN_PROG "Play", 0
+
+    .init_level_state
+    LDA level_number
+    AND #&07
+    STA scenario_number
+    LDA level_number
+    LSR A
+    LSR A
+    LSR A
+    STA round_number
+    LDA #&00
+    STA duck_loose_flag
+    LDA round_number
+    BEQ not_first_round
+    INC duck_loose_flag
+    .not_first_round
+    LDA #&00
+    STA birds_timer_cycle
+    LDA #&00
+    STA current_chicken
+    LDA #&08
+    LDX round_number
+    CPX #&04
+    BCC early_round_slow_chickens
+    LDA #&05
+    .early_round_slow_chickens
+    STA chicken_speed
+    LDA #&00
+    STA extra_life_flag
+    STA dead_flag
+    STA clock_stop_timer
+    LDA #&76
+    STA rand1
+    STA rand2
+    STA rand3
+    STA rand4
+    RTS
+
+    .init_player_level_state
+    LDA player
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    TAX
+    LDA level_number
+    CLC
+    ADC #&01
+    CMP #&0A
+    BCC bonus_in_range
+    LDA #&09
+    .bonus_in_range
+    STA player_level_bonus,X
+    LDA #&00
+    STA &0509,X
+    STA &050A,X
+    STA &050B,X
+    LDY #&10
+    .clear_flags_loop
+    STA player_egg_flags,X
+    STA player_grain_flags,X
+    INX
+    DEY
+    BNE clear_flags_loop
+    RTS
+
+    .restore_player_state
+    LDX player
+    LDA player_levels,X
+    STA level_number
+    TXA
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    ASL A
+    STA player_data_index
+    TAX
+    LDY #&00
+    .restore_score_loop
+    LDA player_score,X
+    STA current_score,Y
+    INX
+    INY
+    CPY #&08
+    BCC restore_score_loop
+    LDX player_data_index
+    LDY #&00
+    .restore_bonus_loop
+    LDA player_level_bonus,X
+    STA bonus_3,Y
+    INX
+    INY
+    CPY #&04
+    BCC restore_bonus_loop
+    LDX player
+    LDA #&00
+    CLC
+    .x_times_34_loop
+    ADC #&22
+    DEX
+    BPL x_times_34_loop
+    SEC
+    SBC #&15
+    STA score_x_position
+    RTS
+
+    .save_player_state
+    LDX player
+    LDA level_number
+    STA player_levels,X
+    LDX player_data_index
+    LDY #&00
+    .save_score_loop
+    LDA current_score,Y
+    STA player_score,X
+    INX
+    INY
+    CPY #&08
+    BCC save_score_loop
+    LDX player_data_index
+    LDY #&00
+    .save_bonus_loop
+    LDA bonus_3,Y
+    STA player_level_bonus,X
+    INX
+    INY
+    CPY #&04
+    BCC save_bonus_loop
+    RTS
+
+    .init_mobile_things
+    LDA lift_flag
+    BEQ no_lift
+    LDA #&08
+    STA lift_y1
+    LDA #&5A
+    STA lift_y2
+    LDA #&00
+    STA lift_alternator
+    LDA #&02
+    STA sprite_colour_mask_left
+    LDA #&05
+    JSR cos_lookup_sprite
+    LDX lift_x
+    LDY lift_y1
+    JSR cos_calculate_screen_location
+    JSR cos_draw_sprite
+    LDA #&05
+    JSR cos_lookup_sprite
+    LDX lift_x
+    LDY lift_y2
+    JSR cos_calculate_screen_location
+    JSR cos_draw_sprite
+    .no_lift
+    LDA #&04
+    STA duck_x
+    LDA #&CC
+    STA duck_y
+    LDA #&00
+    STA duck_vx
+    STA duck_vy
+    STA duck_direction_flap
+    JSR game_draw_duck
+    LDX #&FF
+    STX param
+    LDA round_number
+    CMP #&01
+    BNE round_has_chickens
+    LDX #&00
+    STX chicken_count
+    .round_has_chickens
+    CMP #&03
+    BCC init_chickens_loop
+    LDX #&05
+    STX chicken_count
+    .init_chickens_loop
+    INC param
+    LDX param
+    CPX chicken_count
+    BCS done_chickens
+    LDA chicken_board_xs,X
+    ASL A
+    ASL A
+    ASL A
+    STA chicken_xs,X
+    LDA chicken_board_ys,X
+    ASL A
+    ASL A
+    ASL A
+    CLC
+    ADC #&14
+    STA chicken_ys,X
+    LDA #&00
+    STA chicken_states,X
+    STA chicken_sprite_indices,X
+    LDA #&02
+    STA chicken_directions,X
+    JSR game_draw_chicken
+    JMP init_chickens_loop
+    .done_chickens
+    LDA #&03
+    JSR cos_sleep
+    LDA #&3C
+    STA harry_x
+    LDA #&20
+    STA harry_y
+    LDA #&06
+    STA harry_sprite_index
+    JSR game_draw_harry
+    LDA #&07
+    STA harry_board_x
+    STA harry_cell_x
+    LDA #&02
+    STA harry_board_y
+    LDA #&00
+    STA harry_cell_y
+    STA harry_state
+    LDA #&01
+    STA harry_facing
+    JSR draw_current_life_marker
+    RTS
+
+    .draw_current_life_marker
+    LDA #&20
+    STA sprite_colour_mask_left
+    LDX player
+    LDA player_lives,X
+    CMP #&09
+    BCC marker_visible
+    RTS
+    .marker_visible
+    ASL A
+    ASL A
+    ADC score_x_position
+    ADC #&0A
+    TAX
+    LDY #&EE
+    JSR cos_calculate_screen_location
+    LDA #&2F
+    JSR cos_lookup_sprite
+    JSR cos_draw_sprite
+    RTS
+
+    .check_extra_lives
+    LDA extra_life_flag
+    BNE extra_life
+    RTS
+    .extra_life
+    LDA #&00
+    STA extra_life_flag
+    JSR draw_current_life_marker
+    LDX player
+    INC player_lives,X
+    RTS
+
+    .msg_game_over {
+        MSG_LENGTH
+        VDU_GRAPHICS_WINDOW 256, 336, 1024, 532 
+        VDU_CLG
+        VDU_RESET_WINDOW
+        VDU_MOVE 352, 500
+        VDU_GCOL 0, 8
+        EQUS "GAME OVER"
+        .MSG_END
+    }
+    .msg_get_ready {
+        MSG_LENGTH
+        VDU_CLG
+        VDU_MOVE 352, 500
+        VDU_GCOL 0, 4
+        EQUS "Get Ready"
+        VDU_GCOL 0, 8
+        .MSG_END
+    }
+    .msg_player {
+        MSG_LENGTH
+        VDU_MOVE 384, 400
+        EQUS "Player "
+        .MSG_END
+    }
+}
+
+.msg_game {
+    MSG_LENGTH
+    VDU_CLG
+    VDU_MOVE 32, 500
+    EQUS "GAME !!!! "
+    .MSG_END
+}
+
+INCLUDE "Game_levels.6502"
+
+.sound4
+EQUB &10
+EQUB &00
+EQUB &01
+EQUB &00
+EQUB &04
+EQUB &00
+EQUB &01
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+EQUB &00
+
+.game_prog_end
+SAVE "Game", mini_prog_start_address, game_prog_end, game_start
+

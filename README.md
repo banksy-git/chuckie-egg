@@ -16,6 +16,15 @@ Gameplay behaviour is otherwise unaltered. The timing, mechanics, and feel remai
 
 This design also opens the door to future enhancements such as a shared / networked global high-score board with minimal further changes.
 
+# How do I run it?
+
+* Download the latest .ssd from Releases.
+
+# Where are scores saved?
+
+The scores are saved into the SCORES file. The file must be present
+to run the game.
+
 # Build instructions
 
 Ensure you have beebasm and GNU Make installed.

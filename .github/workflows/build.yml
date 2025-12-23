@@ -43,7 +43,7 @@ jobs:
         with:
           name: chuckie-egg
           path: |
-            *.ssd
+            build/*.ssd
 
   release:
     permissions: write-all

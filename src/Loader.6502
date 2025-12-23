@@ -2,7 +2,7 @@ INCLUDE "defs.6502"
 
 addr = &70
 
-        ORG $4000
+        ORG $1B00
 .loader_start
 
 .start

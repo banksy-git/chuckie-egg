@@ -511,6 +511,8 @@ EQUB &00
     LDA #&1A
     JSR oswrch
 
+    PLA
+    PLA
     RUN_PROG "B.Game", 0
 
 .init_player_level_state

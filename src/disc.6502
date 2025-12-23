@@ -14,6 +14,7 @@ PUTFILE "../build/Play", "B.Play", Play_start, Play_entry
 ; Put small loader
 PUTFILE "LoaderScreen.bin", "B.LoadScr", &7C00
 PUTFILE "../build/Loader", "LOADER", Loader_start, Loader_entry
+PUTBASIC "Load.bas", "LOAD"
 
 ; High-score table
 CLEAR 0, &3000

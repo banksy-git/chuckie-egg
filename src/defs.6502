@@ -105,9 +105,12 @@ scan_SPACE=&62
 
 ; OS calls
 osfile=&FFDD
+osrdch=&FFE0
+osasci=&FFE3
 oswrch=&FFEE
 osword=&FFF1
 osbyte=&FFF4
+oscli=&FFF7
 
 ; OSWORD calls
 osword_0_read_line=0

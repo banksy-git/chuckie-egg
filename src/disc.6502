@@ -4,11 +4,16 @@
 
 INCLUDE "../build/addrs.inc"
 
+; Put game binaries
 PUTFILE "../build/Init", "CHUCKIE", Init_start, Init_entry
 PUTFILE "../build/Home", "B.Home", Home_start, Home_entry
 PUTFILE "../build/KeySelect", "B.KeySel", KeySelect_start, KeySelect_entry
 PUTFILE "../build/Game", "B.Game", Game_start, Game_entry
 PUTFILE "../build/Play", "B.Play", Play_start, Play_entry
+
+; Put small loader
+PUTFILE "LoaderScreen.bin", "B.LoadScr", &7C00
+PUTFILE "../build/Loader", "LOADER", Loader_start, Loader_entry
 
 ; High-score table
 CLEAR 0, &3000

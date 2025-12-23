@@ -1,0 +1,79 @@
+INCLUDE "defs.6502"
+
+addr = &70
+
+        ORG $4000
+.loader_start
+
+.start
+        ; MODE 7 -> VDU 22,7
+        LDA #22
+        JSR oswrch
+        LDA #7
+        JSR oswrch
+
+        ; CLS -> VDU 12
+        LDA #12
+        JSR oswrch
+
+        ; Disable cursor
+        LDA #23
+        JSR oswrch
+        LDA #1
+        JSR oswrch
+        LDA #0
+        JSR oswrch
+        JSR oswrch
+        JSR oswrch
+        JSR oswrch
+        JSR oswrch
+        JSR oswrch
+        JSR oswrch
+        JSR oswrch
+
+        ; *LOAD B.LoadScr
+        LDX #<load_screen
+        LDY #>load_screen
+        JSR oscli
+
+        ; Set cursor position to version
+        LDA #31
+        JSR oswrch
+        LDA #12
+        JSR oswrch
+        LDA #23
+        JSR oswrch
+
+        ; Put git version
+        LDA #<git_version
+        STA addr
+        LDA #>git_version
+        STA addr+1
+        LDY #0
+        .loop
+        LDA (addr),Y
+        BEQ finished
+        JSR osasci
+        INY
+        BNE loop
+        .finished
+
+        ; Wait for any key
+        JSR osrdch
+
+        ; Load Chuckie
+        LDX #<load_chuckie
+        LDY #>load_chuckie
+        JSR oscli
+        RTS
+
+.load_screen
+        EQUS "*LOAD B.LoadScr", &d
+.load_chuckie
+        EQUS "*RUN CHUCKIE", &d
+
+.git_version    
+        INCLUDE "../build/version.inc"
+
+.loader_end
+WRITE_MODULE "Loader", loader_start, loader_end, start

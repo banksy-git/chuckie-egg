@@ -168,44 +168,16 @@ MACRO RUN_PROG prog, n
         EQUS prog, &d
 ENDMACRO
 
-INCLUDE "vars.6502"
+MACRO WRITE_MODULE name, start, end, entry
 
-INCLUDE "ChuckieOS.6502"
+    SAVE "../build/"+name, start, end, entry
 
-CLEAR mini_prog_start_address, &3000
-INCLUDE "Home.6502"
+    CLEAR 0, &3000
+    ORG 0
+    EQUS name,"_start=&",STR$~(start), 10
+    EQUS name,"_end=&",STR$~(end), 10
+    EQUS name,"_entry=&",STR$~(entry), 10
+    .nfo_file
+    SAVE "../build/"+name+".nfo", 0, nfo_file
 
-CLEAR mini_prog_start_address, &3000
-INCLUDE "Game.6502"
-
-CLEAR mini_prog_start_address, &3000
-INCLUDE "Play.6502"
-
-CLEAR mini_prog_start_address, &3000
-INCLUDE "KeySelect.6502"
-
-
-CLEAR 0, &3000
-ORG 0
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-EQUB 0,0,0,0,1,0,0,0
-EQUS "-       "
-.end_scorefile_data
-SAVE "SCORES",&0,end_scorefile_data
+ENDMACRO

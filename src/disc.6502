@@ -1,0 +1,37 @@
+
+; Disc
+; Create the final game disc image
+
+INCLUDE "../build/addrs.inc"
+
+PUTFILE "../build/Init", "CHUCKIE", Init_start, Init_entry
+PUTFILE "../build/Home", "B.Home", Home_start, Home_entry
+PUTFILE "../build/KeySelect", "B.KeySel", KeySelect_start, KeySelect_entry
+PUTFILE "../build/Game", "B.Game", Game_start, Game_entry
+PUTFILE "../build/Play", "B.Play", Play_start, Play_entry
+
+; High-score table
+CLEAR 0, &3000
+ORG 0
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+EQUB 0,0,0,0,1,0,0,0
+EQUS "-       "
+.end_scorefile_data
+SAVE "SCORES",&0,end_scorefile_data

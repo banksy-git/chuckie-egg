@@ -1,6 +1,8 @@
 ; Home - This programme handles the home screen and high-scores
 ; as well as the main menu.
 
+INCLUDE "ChuckieOS.6502"
+
 ORG mini_prog_start_address
 
 .location_of_highscore_x
@@ -314,7 +316,7 @@ EQUB &00
     JSR cos_sleep
     DEC player_remaining_count
     BEQ home_screen
-    RUN_PROG "Game", 1
+    RUN_PROG "B.Game", 1
 
     .home_screen
     TSX
@@ -347,7 +349,7 @@ EQUB &00
 .k_pressed
     LDX carousel_stack_top
     TXS
-    RUN_PROG "KeySel", 0
+    RUN_PROG "B.KeySel", 0
 
     .draw_chuckie_banner_letter
     PHA
@@ -509,7 +511,7 @@ EQUB &00
     LDA #&1A
     JSR oswrch
 
-    RUN_PROG "Game", 0
+    RUN_PROG "B.Game", 0
 
 .init_player_level_state
     LDA player
@@ -662,5 +664,5 @@ EQUB &00
 INCLUDE "Home_sprites.6502"
 
 .home_prog_end
-SAVE "Home", mini_prog_start_address, home_prog_end, home_start
+WRITE_MODULE "Home", mini_prog_start_address, home_prog_end, home_start
 

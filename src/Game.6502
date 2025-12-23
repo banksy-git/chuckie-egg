@@ -2,6 +2,8 @@
 ; setup code. Once loaded, control passes to the "Play"
 ; programme which contains the in-game logic.
 
+INCLUDE "ChuckieOS.6502"
+
 ORG mini_prog_start_address
 
 .init_and_draw_level
@@ -555,7 +557,7 @@ ORG mini_prog_start_address
     LDA #osbyte_7C_clear_escape
     JSR osbyte
     ; Check/show high scores
-    RUN_PROG "Home", 1
+    RUN_PROG "B.Home", 1
 
     .lives_remaining
     LDX player
@@ -590,7 +592,7 @@ ORG mini_prog_start_address
     LDA #osbyte_7C_clear_escape
     JSR osbyte
 
-    RUN_PROG "Play", 0
+    RUN_PROG "B.Play", 0
 
     .init_level_state
     LDA level_number
@@ -906,5 +908,5 @@ EQUB &00
 EQUB &00
 
 .game_prog_end
-SAVE "Game", mini_prog_start_address, game_prog_end, game_start
+WRITE_MODULE "Game", mini_prog_start_address, game_prog_end, game_start
 

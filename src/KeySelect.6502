@@ -1,5 +1,7 @@
 ; KeySelect - This programme contains the keyboard key selection logic
 
+INCLUDE "ChuckieOS.6502"
+
 ORG mini_prog_start_address
 
 .select_keys
@@ -386,9 +388,9 @@ ORG mini_prog_start_address
 .key_select_start
 {
     JSR select_keys
-    RUN_PROG "Home", 0
+    RUN_PROG "B.Home", 0
 }
 
 .key_select_prog_end
-SAVE "KeySel", mini_prog_start_address, key_select_prog_end, key_select_start
+WRITE_MODULE "KeySelect", mini_prog_start_address, key_select_prog_end, key_select_start
 

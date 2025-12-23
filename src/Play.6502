@@ -1,5 +1,7 @@
 ; Play - This programme contains the in-game logic
 
+INCLUDE "ChuckieOS.6502"
+
 ORG mini_prog_start_address
 
 .update_harry
@@ -894,15 +896,15 @@ ORG mini_prog_start_address
     JMP game_loop
 
     .abort_game
-    RUN_PROG "Home", 0
+    RUN_PROG "B.Home", 0
 
     .harry_died
     LXY dead_tune
     JSR play_tune
-    RUN_PROG "Game", 2
+    RUN_PROG "B.Game", 2
 
     .eggs_all_collected
-    RUN_PROG "Game", 3
+    RUN_PROG "B.Game", 3
 
     .check_extra_lives
     LDA extra_life_flag
@@ -1599,5 +1601,5 @@ EQUB &04
 EQUB &00
 
 .play_prog_end
-SAVE "Play", mini_prog_start_address, play_prog_end, play_start
+WRITE_MODULE "Play", mini_prog_start_address, play_prog_end, play_start
 

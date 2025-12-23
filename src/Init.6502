@@ -1,0 +1,158 @@
+; Init - This programme handles the one-time initialisation
+; and passes control to Home.
+
+INCLUDE "ChuckieOS.6502"
+
+ORG mini_prog_start_address
+
+.mp_init_highscores
+{
+    LXY scores_load_param
+    LDA #&FF ; OSFILE load
+    JSR osfile
+    RTS
+
+    .scores_filename {
+        EQUS "SCORES", &d
+    }
+
+    .scores_load_param {
+        EQUW scores_filename ; Filename pointer
+        EQUW highscore_table ; File load address
+        EQUW 0
+        EQUD &00000000 ; File execute address
+        EQUD &00000000 ;
+        EQUD &00000000 ;
+    }
+}
+
+.init_start
+{
+    LDA 'A'
+    JSR oswrch
+
+    LDA #&c8  ; Escape disable
+    LDX #1
+    LDY #&fe
+    JSR osbyte
+
+    LDX #&00
+    LDA #&16
+    JSR oswrch
+    LDA #&02
+    JSR oswrch
+    LDA #&05
+    JSR oswrch
+    LDA #&05
+    JSR oswrch
+    LDA #&9D
+    STA key_jump
+    LDA #&BE
+    STA key_up
+    LDA #&9E
+    STA key_down
+    LDA #&99
+    STA key_left
+    LDA #&98
+    STA key_right
+    JSR mp_init_highscores
+    LXY envelope1
+    LDA #osword_8_define_envelope
+    JSR osword
+    LXY envelope2
+    LDA #osword_8_define_envelope
+    JSR osword
+    LXY envelope3
+    LDA #osword_8_define_envelope
+    JSR osword
+    LDX #&0F
+    STX param
+    .set_palette_loop
+    LDX param
+    STX msg_palette_logical
+    LDA palette_table,X
+    STA msg_palette_physical
+    LXY msg_palette
+    JSR cos_write_counted_string
+    DEC param
+    BPL set_palette_loop
+
+    RUN_PROG "B.Home", 0
+
+    .msg_palette {
+        MSG_LENGTH
+        EQUB &13
+        .^msg_palette_logical
+        EQUB &00
+        .^msg_palette_physical
+        EQUB &00
+        EQUB &00
+        EQUB &00
+        EQUB &00
+        .MSG_END
+    }
+    .palette_table
+    EQUB &00
+    EQUB &03
+    EQUB &05
+    EQUB &02
+    EQUB &03
+    EQUB &03
+    EQUB &03
+    EQUB &03
+    EQUB &06
+    EQUB &06
+    EQUB &06
+    EQUB &06
+    EQUB &03
+    EQUB &03
+    EQUB &03
+    EQUB &03
+     .envelope1
+    EQUB &01
+    EQUB &01
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUS "~"
+    EQUB &CE
+    EQUB &00
+    EQUB &00
+    EQUS "d"
+    EQUB &00
+    .envelope2
+    EQUB &02
+    EQUB &01
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUS "~"
+    EQUB &FE
+    EQUB &00
+    EQUB &FB
+    EQUS "~d"
+    .envelope3
+    EQUB &03
+    EQUB &01
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUB &00
+    EQUS "2"
+    EQUB &00
+    EQUB &00
+    EQUB &E7
+    EQUS "d"
+    EQUB &00
+}
+
+.one_time_init_prog_end
+WRITE_MODULE "Init", cos_start, one_time_init_prog_end, init_start
